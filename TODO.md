@@ -1,12 +1,13 @@
 # Todo list:
 
-- Prepro
-  - Winnie
-- TTS (projet de base)
-  - Coco
-- STT
-  - Jim
-- Metric ( WER, ...)
-  - Tim
-- SER
-  - Lub
+## Preprocessing (Winnie)
+
+## TTS (Coco)
+
+- [ ] Baseline Model
+
+## STT (Jim)
+
+## Metric (Tim)
+
+## SER (Lub)
