@@ -113,7 +113,8 @@ Objective: automatically measure performance.
 - WER (via ASR)
 
 ### Emotional fidelity:
-- SER model → accuracy / F1
+- SER model → accuracy / F1 (emotion2vec)
+- confusion matrix analysis
 
 ## 9. Subjective Evaluation (MOS)
 Objective: human validation.
