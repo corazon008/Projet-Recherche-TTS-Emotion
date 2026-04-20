@@ -43,8 +43,7 @@ This is how your `app` folder should look like:
 └── data
     ├── data
     │   └── ssw_esd
-    ├── emospeech.ckpt
-    ├── g_01800000
+    ├── emospeech.cpkt
     ├── phones.json
     ├── preprocessed
     │   ├── duration
@@ -58,9 +57,9 @@ This is how your `app` folder should look like:
     │   ├── train.txt
     │   ├── trimmed_wav
     │   └── val.txt
-    ├── ssw_esd.zip
     ├── test_ids.txt
-    └── val_ids.txt
+    ├── val_ids.txt
+    └── vocoder_checkpoint.pt
 ```
 
 ### Training

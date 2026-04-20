@@ -25,12 +25,12 @@ gdown.download(
 )  # download test_ids.txt
 gdown.download(
     "https://drive.google.com/uc?id=1KqPK3A8JpB57pzy5dEgkX9RRRkkPZS7S",
-    "vocoder_checkpoint",
+    "vocoder_checkpoint.pt",
     quiet=False,
 )  # download vocoder_checkpoint
 gdown.download(
     "https://drive.google.com/uc?id=1loIzPv4BGoXVYgDtBu_BXbKytiQoAjmW",
-    "EmoSpeech_checkpoint",
+    "emospeech.ckpt",
     quiet=False,
 )  # download EmoSpeech checkpoint
 gdown.download(

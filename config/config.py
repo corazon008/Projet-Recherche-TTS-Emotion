@@ -40,7 +40,9 @@ class TrainConfig:
     )
 
     # Vocoder
-    vocoder_checkpoint_path: str = Path(base_dir) / "app/data/g_01800000"
+    vocoder_checkpoint_path: Path = (
+        Path(base_dir) / "app/data/vocoder_checkpoint.pt"
+    )
     istft_resblock_kernel_sizes: Tuple[int] = (3, 7, 11)
     istft_upsample_rates: Tuple[int] = (6, 8)
     istft_upsample_initial_channel: int = 512
