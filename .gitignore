@@ -215,4 +215,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-datasets/Emotion Speech Dataset*
+app
+*log*
+*.wav
