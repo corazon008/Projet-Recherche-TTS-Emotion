@@ -30,7 +30,7 @@ We used data of 10 English Speakers from [ESD dataset](https://github.com/HLTSin
 uv run --extra cpu download_data.py
 ```
 
-To train a model we need precomputed durations, energy, pitch and eGeMap features. From `src` directory run:
+To train a model we need precomputed durations, energy, pitch and eGeMap features.
 
 ```bash
 uv run --extra cpu -m src.preprocess.preprocess
