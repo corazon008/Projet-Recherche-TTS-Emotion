@@ -1,6 +1,6 @@
 ## How to run
 
-²### Build env
+### Build env
 
 You can build an environment with `uv`.
 
