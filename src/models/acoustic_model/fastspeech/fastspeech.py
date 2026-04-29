@@ -5,10 +5,11 @@ from src.models.acoustic_model.fastspeech.modules import VarianceAdaptor
 from src.models.acoustic_model.transformer.models import Decoder, Encoder
 from src.utils.fastspeech_utils import get_mask_from_lengths
 from src.utils.utils import crash_with_msg
+from config.config import TrainConfig
 
 
 class FastSpeech2(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config: TrainConfig):
         super(FastSpeech2, self).__init__()
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
@@ -23,6 +24,14 @@ class FastSpeech2(nn.Module):
         self.speaker_emb = nn.Embedding(
             config.n_speakers + 1, config.speaker_emb_hidden_size
         )
+
+        # Configurable options: allow disabling or freezing emotion embeddings
+        # These config attributes are optional; sensible defaults are used when missing.
+        self.use_emotion_embeddings = config.use_emotion_embeddings
+        self.freeze_emotion_embeddings = config.freeze_emotion_embeddings
+        if self.freeze_emotion_embeddings:
+            # freeze weights so they are not updated during training
+            self.emotion_emb.weight.requires_grad = False
 
         # Advanced Emotion Conditioning
         self.conditional_cross_attention = config.conditional_cross_attention
@@ -39,17 +48,35 @@ class FastSpeech2(nn.Module):
             else None
         )
 
-        emotion_embedding = self.emotion_emb(batch_dict["emotions"].to(device))
+        # Emotion embedding: optionally disabled or frozen via config
+        if self.use_emotion_embeddings:
+            emotion_embedding = self.emotion_emb(
+                batch_dict["emotions"].to(device)
+            )
+        else:
+            # create a zero embedding so later additions are no-ops
+            batch_size = batch_dict["texts"].shape[0]
+            emb_dim = self.emotion_emb.embedding_dim
+            emotion_embedding = torch.zeros(batch_size, emb_dim, device=device)
+
         speaker_embedding = self.speaker_emb(batch_dict["speakers"].to(device))
 
+        # If configured, stack speaker with emotion embedding (emotion may be zeroed)
         if self.stack_speaker_with_emotion_embedding:
             emotion_embedding = torch.hstack([emotion_embedding, speaker_embedding])
 
+        # Decide what to pass to encoder: only pass when either emotion embeddings are used
+        # or when stacking is enabled (stacking may carry speaker info even if emotion disabled)
         if self.conditional_cross_attention or self.conditional_layer_norm_usage:
+            if self.use_emotion_embeddings or self.stack_speaker_with_emotion_embedding:
+                speaker_emotion_embedding = emotion_embedding
+            else:
+                speaker_emotion_embedding = None
+
             encoder_output, encoder_attention = self.encoder(
                 batch_dict["texts"].to(device),
                 src_masks.to(device),
-                speaker_emotion_embedding=emotion_embedding,
+                speaker_emotion_embedding=speaker_emotion_embedding,
             )
         else:
             encoder_output, encoder_attention = self.encoder(
@@ -58,6 +85,7 @@ class FastSpeech2(nn.Module):
                 speaker_emotion_embedding=None,
             )
 
+        # If not stacking, add speaker and emotion separately (emotion may be zeros)
         if not self.stack_speaker_with_emotion_embedding:
             max_src_len = torch.max(batch_dict["text_lens"]).item()
             encoder_output = (
@@ -66,6 +94,7 @@ class FastSpeech2(nn.Module):
                 + emotion_embedding.unsqueeze(1).expand(-1, max_src_len, -1)
             )
 
+        # If not using conditional cross-attention, add emotion embedding directly
         if not self.conditional_cross_attention:
             max_src_len = torch.max(batch_dict["text_lens"]).item()
             encoder_output = encoder_output + emotion_embedding.unsqueeze(1).expand(

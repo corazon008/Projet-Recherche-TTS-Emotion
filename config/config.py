@@ -75,6 +75,8 @@ class TrainConfig:
     transformer_decoder_dropout: float = 0.2
 
     # Emotion Conditioning
+    use_emotion_embeddings: bool = True
+    freeze_emotion_embeddings: bool = False
     emotion_emb_hidden_size: int = 256
     stack_speaker_with_emotion_embedding: bool = (
         True  # if True speaker and emotion embedding would be concatenated
@@ -185,7 +187,7 @@ class TrainConfig:
     limit_test_batches: Optional[int] = (
         4  # test_batch_size * limit_test_batches samples will be logged to wandb and saved locally during test
     )
-    num_sanity_val_steps: int = 4
+    num_sanity_val_steps: int = 0
     save_top_k_model_weights: int = 5
     metric_monitor_mode: str = "max"  # 'min' or 'max'
 
