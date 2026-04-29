@@ -82,6 +82,39 @@ def train(config: TrainConfig) -> None:
 
 
 if __name__ == "__main__":
+    import argparse
+
     set_up_logger("train.log")
+
+    parser = argparse.ArgumentParser(description="Train FastSpeech2 model")
+    parser.add_argument(
+        "-d",
+        "--device",
+        type=str,
+        choices=["cpu", "cuda"],
+        help="device to use (overrides config.device)",
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--use-emotion",
+        dest="use_emotion",
+        action="store_true",
+        help="enable emotion embeddings (overrides config.use_emotion_embeddings)",
+    )
+    group.add_argument(
+        "--no-use-emotion",
+        dest="use_emotion",
+        action="store_false",
+        help="disable emotion embeddings (overrides config.use_emotion_embeddings)",
+    )
+    parser.set_defaults(use_emotion=None)
+
+    args = parser.parse_args()
+
     config = TrainConfig()
+    if args.device:
+        config.device = args.device
+    if args.use_emotion is not None:
+        config.use_emotion_embeddings = args.use_emotion
+
     train(config)
