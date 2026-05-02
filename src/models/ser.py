@@ -47,13 +47,8 @@ class SER:
             extract_embedding=False,
         )
 
-        print("result brut:", result)  # debug
-
         scores = result[0]["scores"]
         labels = result[0]["labels"]
-
-        print("labels:", labels)  # debug
-        print("scores:", scores)  # debug
 
         # Expected emotion score
         target_label = TARGET_EMOTIONS[expected_emotion]
