@@ -16,7 +16,7 @@ class AdversarialLoss(nn.Module):
         res = []
         for generated_fm, gt_fm in zip(generated_fmaps, gt_fmaps):
             res.append(torch.mean(self.l1_loss(gt_fm, generated_fm)))
-        return torch.mean(torch.tensor(res).detach())
+        return torch.mean(torch.stack(res))
 
     def generator_loss(self, inputs: dict, predictions: dict, jcu: JCU):
         mel_predictions = predictions["predicted_mel"]

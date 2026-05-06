@@ -32,12 +32,12 @@ def train(config: TrainConfig) -> None:
     Path(config.lightning_checkpoint_path).mkdir(exist_ok=True, parents=True)
     callbacks = ModelCheckpoint(
         dirpath=config.lightning_checkpoint_path,
-        filename="fs-{step}-{val_loss:.3f}",
+        filename="fs-{epoch}-{total_loss:.3f}",
         monitor="val_mos/generated_audio_mos_mean",
         save_top_k=config.save_top_k_model_weights,
         mode=config.metric_monitor_mode,
         save_last=True,
-        every_n_train_steps=2,
+        every_n_epochs=4,
         enable_version_counter=True,
     )
 
@@ -74,11 +74,31 @@ def train(config: TrainConfig) -> None:
             if config.train_from_checkpoint
             else None
         ),
+        weights_only=config.weights_only,
     )
     trainer.validate(model, dataloaders=val_loader)
     trainer.test(model, dataloaders=test_loader)
 
-    # trainer.save_checkpoint(filepath=config.lightning_checkpoint_path / "model.ckpt", weights_only=True)
+
+def apply_overrides(config, overrides):
+    for item in overrides:
+        key, value = item.split("=", 1)
+
+        # conversion basique de type
+        if value.lower() in ("true", "false"):
+            value = value.lower() == "true"
+        elif value.isdigit():
+            value = int(value)
+        else:
+            try:
+                value = float(value)
+            except ValueError:
+                pass  # string
+
+        if not hasattr(config, key):
+            raise ValueError(f"Unknown config field: {key}")
+
+        setattr(config, key, value)
 
 
 if __name__ == "__main__":
@@ -87,13 +107,7 @@ if __name__ == "__main__":
     set_up_logger("train.log")
 
     parser = argparse.ArgumentParser(description="Train FastSpeech2 model")
-    parser.add_argument(
-        "-d",
-        "--device",
-        type=str,
-        choices=["cpu", "cuda"],
-        help="device to use (overrides config.device)",
-    )
+
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "--use-emotion",
@@ -109,12 +123,25 @@ if __name__ == "__main__":
     )
     parser.set_defaults(use_emotion=None)
 
+    parser.add_argument(
+        "--override",
+        action="append",
+        default=[],
+        help="Override config fields: key=value",
+    )
+
     args = parser.parse_args()
 
     config = TrainConfig()
-    if args.device:
-        config.device = args.device
-    if args.use_emotion is not None:
-        config.use_emotion_embeddings = args.use_emotion
+    config.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    assert args.use_emotion is not None
+    config.use_emotion_embeddings = args.use_emotion
+    if args.use_emotion:
+        config.lightning_checkpoint_path /= "with_emotion"
+    else:
+        config.lightning_checkpoint_path /= "no_emotion"
+
+    apply_overrides(config, args.override)
 
     train(config)

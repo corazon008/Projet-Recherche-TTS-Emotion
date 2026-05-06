@@ -11,8 +11,9 @@ from config.config import TrainConfig
 from src.dataset.dataset import get_dataloader
 from src.metrics.NISQA.tts_predict_mos import get_mos_scores
 from src.models import Generator, TorchSTFT
-from src.models.acoustic_model.fastspeech.lightning_model import \
-    FastSpeechLightning
+from src.models.acoustic_model.fastspeech.lightning_model import (
+    FastSpeechLightning,
+)
 from src.utils.utils import compute_overall_mos, set_up_logger, write_wav
 from src.utils.vocoder_utils import load_checkpoint, synthesize_wav_from_mel
 
@@ -32,7 +33,9 @@ def create_paths(audio_save_path):
     return original_audio_path, reconstructed_audio_path, generated_audio_path
 
 
-def compute_nisqa_scores(original_path, reconstructed_path, generated_path, nisqa_path):
+def compute_nisqa_scores(
+    original_path, reconstructed_path, generated_path, nisqa_path
+):
     original_mos = get_mos_scores(
         str(original_path), str(Path(nisqa_path) / "original")
     )
@@ -65,13 +68,13 @@ def test(config: TrainConfig) -> None:
         vocoder=vocoder,
         stft=stft,
         train=False,
-        weights_only=True,
+        weights_only=config.weights_only,
     )
     model.eval()
     model = model.to(config.device)
     torch.set_float32_matmul_precision(config.matmul_precision)
-    original_audio_path, reconstructed_audio_path, generated_audio_path = create_paths(
-        config.audio_save_path
+    original_audio_path, reconstructed_audio_path, generated_audio_path = (
+        create_paths(config.audio_save_path)
     )
     create_directories(
         [original_audio_path, reconstructed_audio_path, generated_audio_path]
@@ -90,8 +93,12 @@ def test(config: TrainConfig) -> None:
             else len(test_loader)
         ),
     ):
-        batch_dict_no_tf = model._get_batch_dict_from_dataloader(batch, validation=True)
-        batch_dict_tf = model._get_batch_dict_from_dataloader(batch, validation=False)
+        batch_dict_no_tf = model._get_batch_dict_from_dataloader(
+            batch, validation=True
+        )
+        batch_dict_tf = model._get_batch_dict_from_dataloader(
+            batch, validation=False
+        )
         model_output = model.model(model.device, batch_dict_no_tf)
 
         for i, tag in enumerate(batch_dict_no_tf["ids"]):
@@ -110,14 +117,18 @@ def test(config: TrainConfig) -> None:
             original_audio = (
                 torchaudio.load(source_audio_path)[0].squeeze(0).cpu().numpy()
             )
-            original_audio_sample_path = original_audio_path / Path(tag).with_suffix(
-                ".wav"
-            )
+            original_audio_sample_path = original_audio_path / Path(
+                tag
+            ).with_suffix(".wav")
             write_wav(
-                str(original_audio_sample_path), original_audio, config.sample_rate
+                str(original_audio_sample_path),
+                original_audio,
+                config.sample_rate,
             )
             # reconstructed audio
-            gt_mel_no_padding = batch_dict_tf["mels"][i, : batch_dict_tf["mel_lens"][i]]
+            gt_mel_no_padding = batch_dict_tf["mels"][
+                i, : batch_dict_tf["mel_lens"][i]
+            ]
             reconstructed_wav = synthesize_wav_from_mel(
                 gt_mel_no_padding, model.vocoder, model.stft
             )
@@ -137,11 +148,13 @@ def test(config: TrainConfig) -> None:
             generated_wav = synthesize_wav_from_mel(
                 predicted_mel_no_padding, model.vocoder, model.stft
             )
-            generated_audio_sample_path = generated_audio_path / Path(tag).with_suffix(
-                ".wav"
-            )
+            generated_audio_sample_path = generated_audio_path / Path(
+                tag
+            ).with_suffix(".wav")
             write_wav(
-                str(generated_audio_sample_path), generated_wav, config.sample_rate
+                str(generated_audio_sample_path),
+                generated_wav,
+                config.sample_rate,
             )
 
     if config.compute_nisqa_on_test:
@@ -156,7 +169,9 @@ def test(config: TrainConfig) -> None:
             generated_audio_path,
             config.nisqa_save_path,
         )
-        logger.info(f"Original audios NISQA TTS MOS / std, {original_mos_score}")
+        logger.info(
+            f"Original audios NISQA TTS MOS / std, {original_mos_score}"
+        )
         logger.info(
             f"Reconstructed audios NISQA TTS MOS / std, {reconstructed_mos_score}"
         )

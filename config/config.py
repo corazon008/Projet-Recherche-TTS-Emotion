@@ -109,13 +109,13 @@ class TrainConfig:
     multi_emotion: bool = True
     n_emotions: int = 5
     n_speakers: int = 10
-    train_batch_size: int = 8
-    val_batch_size: int = 8
-    device: str = "cpu"
+    train_batch_size: int = 64
+    val_batch_size: int = 32
+    device: str = "cuda"
 
     # Train
     seed: int = 3
-    precision: str = "16-mixed"
+    precision: str = "32"
     matmul_precision: str = "high"
     lightning_checkpoint_path: Path = (
         Path(base_dir) / "app/data/checkpoints/"
@@ -124,27 +124,28 @@ class TrainConfig:
     train_from_checkpoint: Optional[str] = (
         None  # filename in <lightning_checkpoint_path> directory
     )
-    num_workers: int = 1
+    weights_only: bool = False
+    num_workers: int = os.cpu_count() // 2
     test_wav_files_directory: Path = Path(base_dir) / "app/data/wav"
     test_mos_files_directory: Path = Path(base_dir) / "app/data/mos"
     total_training_steps: int = 2_000
     nb_epochs: int = 10
-    val_each_epoch: int = 1
+    val_each_epoch: int = 5
     val_audio_log_each_step: int = (
-        1  # if greater than one will log audio each <n> step, set to save storage
+        200  # if greater than one will log audio each <n> step, set to save storage
     )
 
     # Test / Inference
     testing_checkpoint: Path = (
         Path(base_dir)
-        # / "app/data/checkpoints/emospeech.ckpt"
+        # / "app/data/checkpoints/last.ckpt"
         / "app/data/emospeech.ckpt"  # "data/deepvk_large_checkpoint/epoch=1079-step=127440.ckpt"
     )
-    audio_save_path: str = (
+    audio_save_path: Path = (
         Path(base_dir)
         / "app/data/deepvk_test"  # directory where synthesised wav files will be saved
     )
-    nisqa_save_path: str = (
+    nisqa_save_path: Path = (
         Path(base_dir)
         / "app/data/deepvk_test"  # directory where nisqa output files will be saved
     )
@@ -154,7 +155,7 @@ class TrainConfig:
     compute_nisqa_on_test: bool = (
         True  # is True will write NISQA scores and stds to test.log file
     )
-    phones_path: str = (
+    phones_path: Path = (
         Path(base_dir) / "app/data/phones.json"
     )  # path to phones dictionary
 
@@ -176,7 +177,7 @@ class TrainConfig:
     resume_wandb_run: bool = (
         False  # if true will log data to the last wandb run in the specified project
     )
-    strategy: str = "ddp_find_unused_parameters_true"
+    strategy: str = "auto"
     wandb_offline: bool = True
     wandb_progress_bar_refresh_rate: int = 1
     wandb_log_every_n_steps: int = 1
@@ -187,7 +188,7 @@ class TrainConfig:
     limit_test_batches: Optional[int] = (
         4  # test_batch_size * limit_test_batches samples will be logged to wandb and saved locally during test
     )
-    num_sanity_val_steps: int = 0
+    num_sanity_val_steps: int = 4
     save_top_k_model_weights: int = 5
     metric_monitor_mode: str = "max"  # 'min' or 'max'
 

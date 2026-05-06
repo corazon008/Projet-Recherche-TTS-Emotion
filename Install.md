@@ -67,14 +67,16 @@ This is how your `app` folder should look like:
 1. Configure arguments in `config/config.py`.
 2. Run:
 
+For the device
+
 ```bash
-uv run --extra cpu -m src.scripts.train -d cpu --use-emotion
+uv run --extra cpu -m src.scripts.train --use-emotion --override train_batch_size=48 nb_epochs=100
 ```
 
 or
 
 ```bash
-uv run --extra cpu -m src.scripts.train -d cpu --no-use-emotion
+uv run --extra cpu -m src.scripts.train --no-use-emotion --override train_batch_size=48 nb_epochs=100
 ```
 
 ## Testing
