@@ -1,3 +1,5 @@
+import shutil
+import soundfile as sf
 import glob
 import json
 import re
@@ -5,6 +7,8 @@ import string
 from dataclasses import asdict
 from pathlib import Path
 from typing import List, Optional, Tuple
+
+
 
 import numpy as np
 import opensmile
@@ -22,6 +26,100 @@ from src.dataset.compute_mel import PAD_MEL_VALUE, ComputeMelEnergy
 from src.utils.multiprocess_utils import run_pool
 from src.utils.utils import crash_with_msg, set_up_logger, write_txt
 
+
+# SNR par défaut pour la condition bruitée. 10 dB = dégradation modérée.
+DEFAULT_SNR_DB = 10.0
+ 
+ 
+def add_white_noise(signal: np.ndarray, snr_db: float) -> np.ndarray:
+    """
+    Ajoute du bruit blanc gaussien à un signal audio avec un SNR cible en dB.
+ 
+    La puissance du bruit est calculée à partir de la définition du SNR :
+        SNR_dB = 10 * log10(P_signal / P_bruit)
+        => P_bruit = P_signal / 10^(SNR_dB / 10)
+ 
+    Args:
+        signal: tableau 1-D float en [-1, 1].
+        snr_db: rapport signal/bruit cible en décibels.
+ 
+    Returns:
+        Signal bruité de même forme, écrêté dans [-1, 1].
+    """
+    puissance_signal = float(np.mean(signal ** 2))
+ 
+    # Si le clip est silencieux on le retourne sans modification pour éviter une division par zéro
+    if puissance_signal == 0.0:
+        logger.warning("Clip silencieux détecté lors du bruitage, retourné sans modification.")
+        return signal.copy()
+ 
+    # Calcul de la puissance du bruit à partir du SNR cible
+    puissance_bruit = puissance_signal / (10 ** (snr_db / 10.0))
+    bruit = np.random.normal(0.0, np.sqrt(puissance_bruit), signal.shape).astype(np.float32)
+ 
+    # Écrêtage pour rester dans la plage PCM valide [-1, 1]
+    return np.clip(signal + bruit, -1.0, 1.0)
+ 
+ 
+def build_noisy_dataset(clean_dir: Path, noisy_dir: Path, snr_db: float, seed: int) -> None:
+    """
+    Crée une copie bruitée du dataset ssw_esd en ajoutant du bruit blanc gaussien
+    à chaque fichier .wav. Les fichiers .txt et .TextGrid sont copiés sans modification
+    pour que le Preprocessor puisse tourner sur le dossier bruité sans changement.
+ 
+    Args:
+        clean_dir: chemin vers le dataset clean (app/data/data/ssw_esd).
+        noisy_dir: chemin de sortie du dataset bruité (app/data/data/ssw_esd_noisy).
+        snr_db:    rapport signal/bruit cible en dB.
+        seed:      graine aléatoire pour la reproductibilité.
+    """
+    np.random.seed(seed)
+ 
+    if not clean_dir.exists():
+        raise FileNotFoundError(
+            f"Dossier du dataset clean introuvable : {clean_dir}. "
+            "Assurez-vous d'avoir exécuté download_data.py d'abord."
+        )
+ 
+    # Récupération de tous les fichiers du dataset
+    tous_les_fichiers = sorted(clean_dir.rglob("*"))
+    fichiers_wav = [f for f in tous_les_fichiers if f.suffix == ".wav" and f.is_file()]
+    autres_fichiers = [f for f in tous_les_fichiers if f.is_file() and f.suffix != ".wav"]
+ 
+    if not fichiers_wav:
+        raise FileNotFoundError(f"Aucun fichier .wav trouvé dans {clean_dir}.")
+ 
+    logger.info(f"Construction du dataset bruité depuis {clean_dir}")
+    logger.info(f"SNR cible : {snr_db} dB | Seed : {seed}")
+    logger.info(f"{len(fichiers_wav)} fichiers .wav à bruiter, {len(autres_fichiers)} autres fichiers à copier.")
+ 
+    traites, erreurs = 0, 0
+ 
+    # Bruitage de chaque fichier .wav et écriture dans le dossier miroir noisy_dir
+    for fichier_wav in fichiers_wav:
+        destination = noisy_dir / fichier_wav.relative_to(clean_dir)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            signal, frequence_echantillonnage = sf.read(str(fichier_wav), dtype="float32", always_2d=False)
+            signal_bruite = add_white_noise(signal, snr_db)
+            sf.write(str(destination), signal_bruite, frequence_echantillonnage)
+            traites += 1
+        except Exception as exc:
+            logger.error(f"Échec du traitement de {fichier_wav} : {exc}")
+            erreurs += 1
+ 
+    # Copie des .txt et .TextGrid sans modification — requis par le Preprocessor pour l'alignement MFA
+    for autre_fichier in autres_fichiers:
+        destination = noisy_dir / autre_fichier.relative_to(clean_dir)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(autre_fichier), str(destination))
+ 
+    logger.info(
+        f"Dataset bruité prêt : {traites} fichiers .wav bruités, "
+        f"{len(autres_fichiers)} autres fichiers copiés, {erreurs} erreurs."
+    )
+    if erreurs:
+        logger.warning(f"{erreurs} fichiers n'ont pas pu être traités.")
 
 class Preprocessor:
     def __init__(self, config: TrainConfig):
@@ -593,5 +691,36 @@ class Preprocessor:
 if __name__ == "__main__":
     set_up_logger("preprocess.log")
     cfg = pyrallis.parse(config_class=TrainConfig)
+ 
+    # Étape 1 : Preprocessing du dataset clean (comportement original inchangé)
     preprocessor = Preprocessor(cfg)
     preprocessor.run()
+ 
+    # Étape 2 : Génération du dataset bruité à partir du dataset clean.
+    # Le dossier bruité est un miroir exact : .wav bruités, .txt et .TextGrid copiés.
+    clean_path = cfg.raw_data_path
+    noisy_path = clean_path.parent / (clean_path.name + "_noisy")
+ 
+    logger.info("Démarrage du bruitage du dataset...")
+    build_noisy_dataset(
+        clean_dir=clean_path,
+        noisy_dir=noisy_path,
+        snr_db=DEFAULT_SNR_DB,
+        seed=cfg.seed,
+    )
+ 
+    # Étape 3 : Preprocessing sur le dataset bruité.
+    # On modifie raw_data_path et preprocessed_data_path pour sauvegarder
+    # les features bruitées dans un dossier séparé (preprocessed_noisy/).
+    logger.info("Démarrage du preprocessing sur le dataset bruité...")
+    cfg.raw_data_path = noisy_path
+    cfg.preprocessed_data_path = cfg.preprocessed_data_path.parent / (
+        cfg.preprocessed_data_path.name + "_noisy"
+    )
+    preprocessor_noisy = Preprocessor(cfg)
+    preprocessor_noisy.run()
+ 
+    logger.info("Toutes les étapes de preprocessing sont terminées.")
+    logger.info(f"Features clean   : {preprocessor.config.preprocessed_data_path}")
+    logger.info(f"Features bruitées : {cfg.preprocessed_data_path}")
+ 
