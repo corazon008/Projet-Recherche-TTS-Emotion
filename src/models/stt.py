@@ -29,7 +29,7 @@ class STTModel:
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Do: python stt.py <chemin>")
+        print("Do: python stt.py <path>")
         sys.exit(1)
 
     stt = STTModel()
