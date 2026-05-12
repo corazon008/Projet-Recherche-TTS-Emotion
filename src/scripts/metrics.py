@@ -73,6 +73,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix as sk_confusion_matrix,
+)
 
 # ---------------------------------------------------------------------------
 # Pretty table (optional)
@@ -184,39 +189,51 @@ def char_error_rate(reference: str, hypothesis: str) -> float:
 
 
 # ===========================================================================
-# Emotion metrics
+# Emotion metrics  — backed by scikit-learn
 # ===========================================================================
 
-def emotion_accuracy(y_true, y_pred) -> float:
-    if not y_true:
-        return 0.0
-    return sum(t == p for t, p in zip(y_true, y_pred)) / len(y_true)
+def emotion_metrics(y_true: list, y_pred: list, labels: list) -> dict:
+    """
+    Compute accuracy, macro F1, per-class precision/recall/F1, and confusion
+    matrix using scikit-learn.
 
+    Returns a dict with keys:
+        accuracy    : float
+        macro_f1    : float
+        per_class   : {label: {precision, recall, f1}}
+        confusion_matrix : {true_label: {pred_label: count}}
+    """
+    acc = round(float(accuracy_score(y_true, y_pred)), 4)
 
-def emotion_f1_macro(y_true, y_pred, labels) -> dict:
-    stats, f1s = {}, []
-    for label in labels:
-        tp = sum(t == label and p == label for t, p in zip(y_true, y_pred))
-        fp = sum(t != label and p == label for t, p in zip(y_true, y_pred))
-        fn = sum(t == label and p != label for t, p in zip(y_true, y_pred))
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        recall    = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = (2 * precision * recall / (precision + recall)
-              if (precision + recall) > 0 else 0.0)
-        stats[label] = {"precision": round(precision, 4),
-                        "recall":    round(recall,    4),
-                        "f1":        round(f1,        4)}
-        f1s.append(f1)
-    stats["macro_f1"] = round(float(np.mean(f1s)), 4) if f1s else 0.0
-    return stats
+    report = classification_report(
+        y_true, y_pred,
+        labels=labels,
+        output_dict=True,
+        zero_division=0,
+    )
+    macro_f1 = round(float(report["macro avg"]["f1-score"]), 4)
+    per_class = {
+        lbl: {
+            "precision": round(float(report[lbl]["precision"]), 4),
+            "recall":    round(float(report[lbl]["recall"]),    4),
+            "f1":        round(float(report[lbl]["f1-score"]),  4),
+        }
+        for lbl in labels
+        if lbl in report
+    }
 
+    cm_array = sk_confusion_matrix(y_true, y_pred, labels=labels)
+    cm = {
+        true_lbl: {pred_lbl: int(cm_array[i, j]) for j, pred_lbl in enumerate(labels)}
+        for i, true_lbl in enumerate(labels)
+    }
 
-def confusion_matrix(y_true, y_pred, labels) -> dict:
-    cm = {t: {p: 0 for p in labels} for t in labels}
-    for t, p in zip(y_true, y_pred):
-        if t in cm and p in cm[t]:
-            cm[t][p] += 1
-    return cm
+    return {
+        "accuracy":         acc,
+        "macro_f1":         macro_f1,
+        "per_class":        per_class,
+        "confusion_matrix": cm,
+    }
 
 
 # ===========================================================================
@@ -304,12 +321,9 @@ def compute_report(df: pd.DataFrame,
     mean_cer = round(float(np.mean(cers)), 4)
     std_cer  = round(float(np.std(cers)),  4)
 
-    # Emotion metrics
-    acc     = round(emotion_accuracy(y_true, y_pred), 4)
-    f1_info = emotion_f1_macro(y_true, y_pred, labels)
-    cm      = confusion_matrix(y_true, y_pred, labels)
-
-    score = fidelity_score(mean_wer, acc)
+    # Emotion metrics (sklearn-backed)
+    emo = emotion_metrics(y_true, y_pred, labels)
+    score = fidelity_score(mean_wer, emo["accuracy"])
 
     return {
         "n_samples": n,
@@ -318,11 +332,11 @@ def compute_report(df: pd.DataFrame,
             "mean_CER": mean_cer, "std_CER": std_cer,
         },
         "emotion_metrics": {
-            "accuracy":  acc,
-            "macro_f1":  f1_info["macro_f1"],
-            "per_class": {k: v for k, v in f1_info.items() if k != "macro_f1"},
+            "accuracy":  emo["accuracy"],
+            "macro_f1":  emo["macro_f1"],
+            "per_class": emo["per_class"],
         },
-        "confusion_matrix": cm,
+        "confusion_matrix": emo["confusion_matrix"],
         "fidelity_score":   score,
     }
 
