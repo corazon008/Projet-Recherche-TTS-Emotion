@@ -70,13 +70,13 @@ This is how your `app` folder should look like:
 For the device
 
 ```bash
-uv run --extra cpu -m src.scripts.train --use-emotion --override train_batch_size=48 nb_epochs=100
+uv run --extra gpu -m src.scripts.train --use-emotion --train_batch_size 48 --nb_epochs 1500
 ```
 
 or
 
 ```bash
-uv run --extra cpu -m src.scripts.train --no-use-emotion --override train_batch_size=48 nb_epochs=100
+uv run --extra gpu -m src.scripts.train --no-use-emotion --train_batch_size 48 --nb_epochs 1500
 ```
 
 ## Testing

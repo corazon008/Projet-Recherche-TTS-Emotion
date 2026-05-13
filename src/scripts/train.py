@@ -80,23 +80,25 @@ def train(config: TrainConfig) -> None:
     trainer.test(model, dataloaders=test_loader)
 
 
-def apply_overrides(config, overrides):
-    for item in overrides:
-        key, value = item.split("=", 1)
+def apply_unknown_args(config, unknown):
+    it = iter(unknown)
 
-        # conversion basique de type
-        if value.lower() in ("true", "false"):
-            value = value.lower() == "true"
-        elif value.isdigit():
-            value = int(value)
+    for arg in it:
+        if not arg.startswith("--"):
+            continue
+
+        key = arg[2:]
+        value = next(it)
+
+        current = getattr(config, key)
+
+        # cast automatique basé sur le type existant
+        target_type = type(current)
+
+        if target_type is bool:
+            value = value.lower() in ("1", "true", "yes")
         else:
-            try:
-                value = float(value)
-            except ValueError:
-                pass  # string
-
-        if not hasattr(config, key):
-            raise ValueError(f"Unknown config field: {key}")
+            value = target_type(value)
 
         setattr(config, key, value)
 
@@ -130,7 +132,7 @@ if __name__ == "__main__":
         help="Override config fields: key=value",
     )
 
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
     config = TrainConfig()
     config.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -142,6 +144,6 @@ if __name__ == "__main__":
     else:
         config.lightning_checkpoint_path /= "no_emotion"
 
-    apply_overrides(config, args.override)
+    apply_unknown_args(config, unknown)
 
     train(config)
