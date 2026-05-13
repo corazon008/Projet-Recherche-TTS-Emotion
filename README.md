@@ -2,6 +2,9 @@
 
 ## Sujet : Est ce que l’intégration d’un embedding émotionnel dans un modèle de génération de signal audio améliore la fidélité expressive du signal généré ?
 
+## Installation
+Voir `Install.md`
+
 ## References
 
 1. [FastSpeech 2 - PyTorch Implementation](https://github.com/ming024/FastSpeech2)
