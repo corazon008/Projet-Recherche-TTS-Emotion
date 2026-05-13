@@ -1,10 +1,10 @@
-## How to run
+# How to run
 
-### Build env
+## Build env
 
 You can build an environment with `uv`.
 
-#### To set up environment with uv
+### To set up environment with uv
 
 If you don't have uv installed, please find the installation instructions for your OS [here](https://docs.astral.sh/uv/getting-started/installation/).
 
@@ -22,7 +22,7 @@ For GPU:
 uv sync --extra gpu
 ```
 
-### Download and preprocess data
+## Download and preprocess data
 
 We used data of 10 English Speakers from [ESD dataset](https://github.com/HLTSingapore/Emotional-Speech-Data). To download all `.wav`, `.txt` files along with `.TextGrid` files created using [MFA](https://github.com/MontrealCorpusTools/mfa-models):
 
@@ -62,16 +62,24 @@ This is how your `app` folder should look like:
     └── vocoder_checkpoint.pt
 ```
 
-### Training
+## Training
 
 1. Configure arguments in `config/config.py`.
 2. Run:
 
+For the device
+
 ```bash
-uv run --extra cpu -m src.scripts.train
+uv run --extra gpu -m src.scripts.train --use-emotion --train_batch_size 48 --nb_epochs 1500
 ```
 
-### Testing
+or
+
+```bash
+uv run --extra gpu -m src.scripts.train --no-use-emotion --train_batch_size 48 --nb_epochs 1500
+```
+
+## Testing
 
 Testing is implemented on testing subset of ESD dataset. To synthesize audio and compute neural MOS (NISQA TTS):
 
@@ -84,11 +92,11 @@ uv run --extra cpu -m src.scripts.test
 
 You can find NISQA TTS for original, reconstructed and generated audio in `test.log`.
 
-### Inference
+## Inference
 
 EmoSpeech is trained on phoneme sequences. Supported phones can be found in `app/data/preprocessed/phones.json`. This repositroy is created for academic research and doesn't support automatic grapheme-to-phoneme conversion. However, if you would like to synthesize arbitrary sentence with emotion conditioning you can:
 
-#### Using my custom docker image with MFA
+### Using my custom docker image with MFA
 
 1. Build the docker image with MFA:
 
@@ -108,7 +116,7 @@ docker run -it -v ./app/data:/data mfa
 echo "Your sentence to synthesize goes here." > app/data/graphemes.txt
 ```
 
-#### Following the install guide of MFA
+### Following the install guide of MFA
 
 1. Generate phoneme sequence from graphemes with [MFA](https://github.com/MontrealCorpusTools/mfa-models).
 
@@ -118,7 +126,7 @@ echo "Your sentence to synthesize goes here." > app/data/graphemes.txt
 
 3. Generate phoneme.txt from graphemes.txt: `mfa g2p graphemes.txt english_us_arpa phoneme.txt`
 
-#### Launch inference
+### Launch inference
 
 Run `uv run --extra cpu -m src.scripts.inference`, specifying arguments:
 

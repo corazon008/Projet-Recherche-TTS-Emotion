@@ -67,7 +67,7 @@ def inference(config: TrainConfig, args: argparse.Namespace) -> None:
         stft=stft,
         train=False,
         map_location=torch.device(config.device),
-        weights_only=False,
+        weights_only=config.weights_only,
     )
     model.eval()
     torch.set_float32_matmul_precision(config.matmul_precision)

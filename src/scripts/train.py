@@ -32,12 +32,12 @@ def train(config: TrainConfig) -> None:
     Path(config.lightning_checkpoint_path).mkdir(exist_ok=True, parents=True)
     callbacks = ModelCheckpoint(
         dirpath=config.lightning_checkpoint_path,
-        filename="fs-{step}-{val_loss:.3f}",
+        filename="fs-{epoch}-{total_loss:.3f}",
         monitor="val_mos/generated_audio_mos_mean",
         save_top_k=config.save_top_k_model_weights,
         mode=config.metric_monitor_mode,
         save_last=True,
-        every_n_train_steps=2,
+        every_n_epochs=4,
         enable_version_counter=True,
     )
 
@@ -74,14 +74,76 @@ def train(config: TrainConfig) -> None:
             if config.train_from_checkpoint
             else None
         ),
+        weights_only=config.weights_only,
     )
     trainer.validate(model, dataloaders=val_loader)
     trainer.test(model, dataloaders=test_loader)
 
-    # trainer.save_checkpoint(filepath=config.lightning_checkpoint_path / "model.ckpt", weights_only=True)
+
+def apply_unknown_args(config, unknown):
+    it = iter(unknown)
+
+    for arg in it:
+        if not arg.startswith("--"):
+            continue
+
+        key = arg[2:]
+        value = next(it)
+
+        current = getattr(config, key)
+
+        # cast automatique basé sur le type existant
+        target_type = type(current)
+
+        if target_type is bool:
+            value = value.lower() in ("1", "true", "yes")
+        else:
+            value = target_type(value)
+
+        setattr(config, key, value)
 
 
 if __name__ == "__main__":
+    import argparse
+
     set_up_logger("train.log")
+
+    parser = argparse.ArgumentParser(description="Train FastSpeech2 model")
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--use-emotion",
+        dest="use_emotion",
+        action="store_true",
+        help="enable emotion embeddings (overrides config.use_emotion_embeddings)",
+    )
+    group.add_argument(
+        "--no-use-emotion",
+        dest="use_emotion",
+        action="store_false",
+        help="disable emotion embeddings (overrides config.use_emotion_embeddings)",
+    )
+    parser.set_defaults(use_emotion=None)
+
+    parser.add_argument(
+        "--override",
+        action="append",
+        default=[],
+        help="Override config fields: key=value",
+    )
+
+    args, unknown = parser.parse_known_args()
+
     config = TrainConfig()
+    config.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    assert args.use_emotion is not None
+    config.use_emotion_embeddings = args.use_emotion
+    if args.use_emotion:
+        config.lightning_checkpoint_path /= "with_emotion"
+    else:
+        config.lightning_checkpoint_path /= "no_emotion"
+
+    apply_unknown_args(config, unknown)
+
     train(config)
