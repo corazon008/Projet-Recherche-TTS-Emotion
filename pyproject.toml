@@ -23,6 +23,7 @@ dependencies = [
     "scikit-learn>=1.1.2",
     "scipy>=1.9.3",
     "seaborn>=0.12.2",
+    "setuptools>=70,<82",
     "soundfile>=0.12.1",
     "tgt>=1.4.4",
     "torchmetrics>=0.11.4",
