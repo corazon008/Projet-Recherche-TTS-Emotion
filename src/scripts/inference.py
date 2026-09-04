@@ -12,7 +12,12 @@ from src.models import Generator, TorchSTFT
 from src.models.acoustic_model.fastspeech.lightning_model import (
     FastSpeechLightning,
 )
-from src.utils.utils import crash_with_msg, set_up_logger, write_wav
+from src.utils.utils import (
+    build_config_from_checkpoint,
+    crash_with_msg,
+    set_up_logger,
+    write_wav,
+)
 from src.utils.vocoder_utils import load_checkpoint, synthesize_wav_from_mel
 
 
@@ -92,7 +97,7 @@ def multiply(*args):
 
 if __name__ == "__main__":
     set_up_logger("inference.log")
-    config = TrainConfig()
+    default_config = TrainConfig()
     parser = argparse.ArgumentParser()
 
     # Given a sequence phonemes
@@ -129,7 +134,36 @@ if __name__ == "__main__":
         type=str,
         default="generation_from_phoneme_sequence.wav",
     )
+    parser.add_argument(
+        "--checkpoint",
+        help="Path to the trained checkpoint (default: config.testing_checkpoint)",
+        type=Path,
+        default=default_config.testing_checkpoint,
+    )
+    parser.add_argument(
+        "--device",
+        help="Device to run inference on (cuda/cpu). Default: cuda if available.",
+        type=str,
+        default="cuda" if torch.cuda.is_available() else "cpu",
+    )
+    modal_group = parser.add_mutually_exclusive_group()
+    modal_group.add_argument(
+        "--use-emotion",
+        dest="use_emotion",
+        action="store_true",
+        help="Force emotion conditioning (overrides the checkpoint config)",
+    )
+    modal_group.add_argument(
+        "--no-use-emotion",
+        dest="use_emotion",
+        action="store_false",
+        help="Disable emotion conditioning (overrides the checkpoint config)",
+    )
+    parser.set_defaults(use_emotion=None)
     args = parser.parse_args()
+    config = build_config_from_checkpoint(args.checkpoint, device=args.device)
+    if args.use_emotion is not None:
+        config.use_emotion_embeddings = args.use_emotion
 
     if args.phone_sequence is None and args.phones_file is None:
         crash_with_msg(

@@ -128,7 +128,7 @@ class TrainConfig:
     num_workers: int = os.cpu_count() // 2
     test_wav_files_directory: Path = Path(base_dir) / "app/data/wav"
     test_mos_files_directory: Path = Path(base_dir) / "app/data/mos"
-    total_training_steps: int = 2_000
+    total_training_steps: int = 300_000
     nb_epochs: int = 10
     val_each_epoch: int = 5
     val_audio_log_each_step: int = (
@@ -156,8 +156,8 @@ class TrainConfig:
         True  # is True will write NISQA scores and stds to test.log file
     )
     phones_path: Path = (
-        Path(base_dir) / "app/data/phones.json"
-    )  # path to phones dictionary
+        Path(base_dir) / "app/data/preprocessed/phones.json"
+    )  # path to phones dictionary (must match phones_mapping_path used for training)
 
     # Optimizer
     optimizer_grad_clip_val: float = 1.0

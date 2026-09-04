@@ -14,7 +14,12 @@ from src.models import Generator, TorchSTFT
 from src.models.acoustic_model.fastspeech.lightning_model import (
     FastSpeechLightning,
 )
-from src.utils.utils import compute_overall_mos, set_up_logger, write_wav
+from src.utils.utils import (
+    build_config_from_checkpoint,
+    compute_overall_mos,
+    set_up_logger,
+    write_wav,
+)
 from src.utils.vocoder_utils import load_checkpoint, synthesize_wav_from_mel
 
 
@@ -182,5 +187,40 @@ def test(config: TrainConfig) -> None:
 
 if __name__ == "__main__":
     set_up_logger("test.log")
-    config = TrainConfig()
+    import argparse
+
+    default_config = TrainConfig()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--checkpoint",
+        help="Path to the trained checkpoint (default: config.testing_checkpoint)",
+        type=Path,
+        default=default_config.testing_checkpoint,
+    )
+    parser.add_argument(
+        "--device",
+        help="Device to run test on (cuda/cpu). Default: cuda if available.",
+        type=str,
+        default="cuda" if torch.cuda.is_available() else "cpu",
+    )
+    modal_group = parser.add_mutually_exclusive_group()
+    modal_group.add_argument(
+        "--use-emotion",
+        dest="use_emotion",
+        action="store_true",
+        help="Force emotion conditioning (overrides the checkpoint config)",
+    )
+    modal_group.add_argument(
+        "--no-use-emotion",
+        dest="use_emotion",
+        action="store_false",
+        help="Disable emotion conditioning (overrides the checkpoint config)",
+    )
+    parser.set_defaults(use_emotion=None)
+    args = parser.parse_args()
+    config = build_config_from_checkpoint(
+        args.checkpoint, device=args.device, testing_checkpoint=args.checkpoint
+    )
+    if args.use_emotion is not None:
+        config.use_emotion_embeddings = args.use_emotion
     test(config)

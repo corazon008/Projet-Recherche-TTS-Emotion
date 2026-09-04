@@ -23,8 +23,11 @@ class ScaledDotProductAttention(nn.Module):
         """
         bs, seq_len, hid = q.size()  # bs * n_head, seg_len, hid
 
-        attention_weights = torch.bmm(q, k.transpose(1, 2)).squeeze(-1)
+        attention_weights = torch.bmm(q, k.transpose(1, 2))
         attention_weights = attention_weights / self.scale
+
+        if cca:
+            attention_weights = attention_weights.squeeze(-1)
 
         if mask is not None:
             if mask.shape == attention_weights.shape:

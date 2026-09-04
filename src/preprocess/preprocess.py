@@ -92,7 +92,7 @@ class Preprocessor:
             3) saves final manifests and feature stats.
         :return: None
         """
-        data = glob.glob(f"{self.config.raw_data_path}/*.TextGrid")
+        data = sorted(glob.glob(f"{self.config.raw_data_path}/*.TextGrid"))
         results = run_pool(self._run, data, n_threads=self.config.n_threads)
 
         manifest_data, n_frames = [], 0

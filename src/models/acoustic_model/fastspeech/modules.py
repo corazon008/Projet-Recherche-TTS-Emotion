@@ -150,7 +150,7 @@ class VarianceAdaptor(nn.Module):
             duration_rounded = batch_dict["durations"]
         else:
             duration_rounded = torch.clamp(
-                torch.round(torch.exp(log_duration_prediction) - 1), min=0
+                torch.round(torch.exp(log_duration_prediction) - 1), min=1
             )
             x, mel_len = self.length_regulator(x, duration_rounded, max_mel_len)
 

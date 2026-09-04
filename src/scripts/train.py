@@ -12,7 +12,7 @@ from src.models import Generator, TorchSTFT
 from src.models.acoustic_model.fastspeech.lightning_model import (
     FastSpeechLightning,
 )
-from src.utils.utils import set_up_logger
+from src.utils.utils import config_from_checkpoint, crash_with_msg, set_up_logger
 from src.utils.vocoder_utils import load_checkpoint
 
 
@@ -47,7 +47,7 @@ def train(config: TrainConfig) -> None:
     # wandb_logger.watch(model.model, log_graph=False)
 
     trainer = Trainer(
-        # max_steps=config.total_training_steps,
+        max_steps=config.total_training_steps,
         max_epochs=config.nb_epochs,
         check_val_every_n_epoch=config.val_each_epoch,
         log_every_n_steps=config.wandb_log_every_n_steps,
@@ -64,16 +64,27 @@ def train(config: TrainConfig) -> None:
         precision=config.precision,
     )
     torch.set_float32_matmul_precision(config.matmul_precision)
+
+    resume_path = None
+    if config.train_from_checkpoint:
+        resume_path = Path(config.lightning_checkpoint_path) / config.train_from_checkpoint
+        stored_config = config_from_checkpoint(resume_path)
+        if (
+            stored_config is not None
+            and stored_config.use_emotion_embeddings != config.use_emotion_embeddings
+        ):
+            crash_with_msg(
+                "Cannot resume: checkpoint was trained "
+                f"use_emotion_embeddings={stored_config.use_emotion_embeddings} "
+                f"but the current run uses use_emotion_embeddings={config.use_emotion_embeddings}. "
+                "Train each modality from scratch."
+            )
+
     trainer.fit(
         model,
         train_dataloaders=train_loader,
         val_dataloaders=val_loader,
-        ckpt_path=(
-            Path(config.lightning_checkpoint_path)
-            / config.train_from_checkpoint
-            if config.train_from_checkpoint
-            else None
-        ),
+        ckpt_path=resume_path,
         weights_only=config.weights_only,
     )
     trainer.validate(model, dataloaders=val_loader)

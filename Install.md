@@ -44,7 +44,6 @@ This is how your `app` folder should look like:
     ├── data
     │   └── ssw_esd
     ├── emospeech.cpkt
-    ├── phones.json
     ├── preprocessed
     │   ├── duration
     │   ├── egemap
@@ -132,7 +131,7 @@ Run `uv run --extra cpu -m src.scripts.inference`, specifying arguments:
 
 | **Аrgument** | **Meaning**                          | **Possible Values**                                                 | **Default value**                              |
 | ------------ | ------------------------------------ | ------------------------------------------------------------------- | ---------------------------------------------- |
-| `-sq`        | Phoneme sequence to synthesisze      | Find in `data/phones.json`.                                         | **Not set, required argument if -pf not set.** |
+| `-sq`        | Phoneme sequence to synthesisze      | Find in `app/data/preprocessed/phones.json`.                         | **Not set, required argument if -pf not set.** |
 | `-pf`        | Phoneme sequence file to synthesisze | `app/data/phoneme.txt`.                                             | **Not set, required argument if -sq not set.** |
 | `-emo`       | Id of desired voice emotion          | 0: neutral, 1: angry, 2: happy, 3: sad, 4: surprise.                | 1                                              |
 | `-sp`        | Id of speaker voice                  | From 1 to 10, correspond to 0011 ... 0020 in original ESD notation. | 5                                              |

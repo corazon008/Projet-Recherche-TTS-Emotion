@@ -1,12 +1,45 @@
 import json
 import sys
 from collections import defaultdict
+from dataclasses import fields
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
+import torch
 from loguru import logger
 from scipy.io import wavfile
+
+from config.config import TrainConfig
+
+
+def config_from_checkpoint(checkpoint_path: Union[str, Path]) -> Optional[TrainConfig]:
+    """Return the TrainConfig stored in a Lightning checkpoint hyper_parameters."""
+    checkpoint = torch.load(
+        str(checkpoint_path), map_location="cpu", weights_only=False
+    )
+    hyper_parameters = checkpoint.get("hyper_parameters", {})
+    config = hyper_parameters.get("config", None)
+    if isinstance(config, dict):
+        config = TrainConfig(**{k: v for k, v in config.items() if k in {f.name for f in fields(TrainConfig)}})
+    return config
+
+
+def build_config_from_checkpoint(
+    checkpoint_path: Union[str, Path], **overrides
+) -> TrainConfig:
+    """Config used for testing/inference: starts from current defaults, then applies the
+    stored checkpoint config (so a no-emotion model is never evaluated in emotion mode),
+    then explicit CLI overrides."""
+    config = TrainConfig()
+    stored = config_from_checkpoint(checkpoint_path)
+    if stored is not None:
+        for field in fields(config):
+            if hasattr(stored, field.name):
+                setattr(config, field.name, getattr(stored, field.name))
+    for key, value in overrides.items():
+        setattr(config, key, value)
+    return config
 
 
 def compute_overall_mos(d: dict) -> tuple[float, float]:
